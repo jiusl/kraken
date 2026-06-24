@@ -66,6 +66,18 @@ export const KnowledgeState = Annotation.Root({
     reducer: (_current, update) => update ?? "",
     default: () => "",
   }),
+
+  // ---- 行为变化测试统计 ----
+  /** 通过测试的条目数 */
+  passedTestCount: Annotation<number>({
+    reducer: (_current, update) => update ?? 0,
+    default: () => 0,
+  }),
+  /** 被过滤的条目数 */
+  filteredCount: Annotation<number>({
+    reducer: (_current, update) => update ?? 0,
+    default: () => 0,
+  }),
 });
 
 /** 状态类型导出 */

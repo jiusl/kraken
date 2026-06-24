@@ -5,6 +5,7 @@ import {
   crawlerNode,
   processorNode,
   summarizerNode,
+  behaviorChangeTestNode,
   qdrantNode,
 } from "../nodes/index.js";
 import { logger } from "../tools/index.js";
@@ -27,6 +28,13 @@ function shouldSummarize(state: KnowledgeStateType): "summarizer" | typeof END {
   return "summarizer";
 }
 
+function shouldTest(state: KnowledgeStateType): "behaviorChangeTest" | typeof END {
+  if (state.status === "error") {
+    return END;
+  }
+  return "behaviorChangeTest";
+}
+
 function shouldUpsert(state: KnowledgeStateType): "qdrant" | typeof END {
   if (state.status === "error") {
     return END;
@@ -37,7 +45,7 @@ function shouldUpsert(state: KnowledgeStateType): "qdrant" | typeof END {
 /**
  * 构建知识处理工作流图
  *
- * 流程：crawler → processor → summarizer → qdrant → END
+ * 流程：crawler → processor → summarizer → behaviorChangeTest → qdrant → END
  * 每步出错都会短路到 END
  */
 const workflow = new StateGraph(KnowledgeState)
@@ -45,13 +53,15 @@ const workflow = new StateGraph(KnowledgeState)
   .addNode("crawler", crawlerNode)
   .addNode("processor", processorNode)
   .addNode("summarizer", summarizerNode)
+  .addNode("behaviorChangeTest", behaviorChangeTestNode)
   .addNode("qdrant", qdrantNode)
 
   // ---- 定义边 ----
   .addEdge("__start__", "crawler")
   .addConditionalEdges("crawler", shouldContinue)
   .addConditionalEdges("processor", shouldSummarize)
-  .addConditionalEdges("summarizer", shouldUpsert)
+  .addConditionalEdges("summarizer", shouldTest)
+  .addConditionalEdges("behaviorChangeTest", shouldUpsert)
   .addEdge("qdrant", END);
 
 /** 编译后的可执行图 */

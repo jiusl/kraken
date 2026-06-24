@@ -14,6 +14,9 @@ vi.mock("../../src/nodes/processor.js", () => ({
 vi.mock("../../src/nodes/summarizer.js", () => ({
   summarizerNode: vi.fn(),
 }));
+vi.mock("../../src/nodes/behaviorChangeTest.js", () => ({
+  behaviorChangeTestNode: vi.fn(),
+}));
 vi.mock("../../src/nodes/qdrant.js", () => ({
   qdrantNode: vi.fn(),
 }));
@@ -29,6 +32,7 @@ vi.mock("../../src/tools/logger.js", () => ({
 import { crawlerNode } from "../../src/nodes/crawler.js";
 import { processorNode } from "../../src/nodes/processor.js";
 import { summarizerNode } from "../../src/nodes/summarizer.js";
+import { behaviorChangeTestNode } from "../../src/nodes/behaviorChangeTest.js";
 import { qdrantNode } from "../../src/nodes/qdrant.js";
 import { runKnowledgePipeline } from "../../src/graphs/knowledge.js";
 
@@ -69,6 +73,22 @@ describe("runKnowledgePipeline", () => {
         ],
       });
 
+      vi.mocked(behaviorChangeTestNode).mockResolvedValue({
+        status: "processing",
+        processedData: [
+          {
+            summary: "摘要",
+            keywords: ["test"],
+            sourceUrl: "https://example.com",
+            processedAt: "2024-01-01T00:00:00.000Z",
+            originalTokenEstimate: 10,
+            summaryTokenEstimate: 2,
+          },
+        ],
+        passedTestCount: 1,
+        filteredCount: 0,
+      });
+
       vi.mocked(qdrantNode).mockResolvedValue({
         status: "done",
       });
@@ -78,6 +98,7 @@ describe("runKnowledgePipeline", () => {
       expect(crawlerNode).toHaveBeenCalledTimes(1);
       expect(processorNode).toHaveBeenCalledTimes(1);
       expect(summarizerNode).toHaveBeenCalledTimes(1);
+      expect(behaviorChangeTestNode).toHaveBeenCalledTimes(1);
       expect(qdrantNode).toHaveBeenCalledTimes(1);
       expect(result.status).toBe("done");
       expect(result.taskId).toMatch(/^task-/);
