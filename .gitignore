@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Environment (contains API keys)
+.env
+
+# Runtime data
+data/
+storage/
+snapshots/
+scripts/
+.qdrant-initialized
+
+# IDE
+.vscode/settings.json
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Project docs (not for repo)
+AI_CONTEXT.md
+UPGRADE_PLAN.md

@@ -1,0 +1,25 @@
+# SearXNG configuration
+# Minimal settings for local knowledge search
+use_default_settings: true
+
+search:
+  safe_search: 0
+  autocomplete: ""
+  default_lang: ""
+  formats:
+    - html
+    - json
+
+server:
+  secret_key: "kraken-dev-searxng-secret-key-2024"
+  bind_address: "0.0.0.0"
+  port: 8080
+  limiter: false
+  image_proxy: false
+  method: "GET"
+
+ui:
+  static_use_hash: true
+
+redis:
+  url: false
