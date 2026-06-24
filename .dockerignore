@@ -1,0 +1,17 @@
+# Docker 构建排除
+node_modules/
+dist/
+tests/
+.git/
+.gitignore
+.env
+.env.production
+*.md
+*.log
+data/
+storage/
+snapshots/
+scripts/
+.idea/
+.vscode/
+coverage/

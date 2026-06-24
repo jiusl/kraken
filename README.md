@@ -56,6 +56,78 @@ cp .env.example .env
 npm run dev
 ```
 
+## 生产部署 (Docker Compose)
+
+项目包含完整的 Docker 化部署方案，一键启动所有依赖服务。
+
+### 前置要求
+
+- **Docker** ≥ 24 + **Docker Compose** ≥ v2
+- **DeepSeek API Key**（[获取](https://platform.deepseek.com/api_keys)）— 主推理引擎
+- Ollama 可选（仅 LLM 兜底时启用）
+
+### 1. 准备配置
+
+```bash
+# 复制生产环境变量模板
+cp .env.production.example .env.production
+
+# 编辑 .env.production，填入你的 DeepSeek API Key
+# DEEPSEEK_API_KEY=sk-your-real-key
+```
+
+### 2. 启动所有服务
+
+```bash
+# 构建并后台启动 (Kraken + Qdrant + SearXNG)
+docker compose up -d
+
+# 如需 Ollama 本地兜底（需 NVIDIA GPU）：
+# docker compose --profile fallback up -d ollama
+# docker compose exec ollama ollama pull embeddinggemma
+# docker compose exec ollama ollama pull qwen2.5:1.5b-instruct-q4_K_M
+```
+
+### 3. 验证
+
+```bash
+# 健康检查
+curl http://localhost:3000/health
+
+# 查看实时日志
+docker compose logs -f kraken
+```
+
+### Docker 架构
+
+```
+┌──────────────────────────────────────────┐
+│              Docker Network               │
+│                                          │
+│  ┌─────────┐  ┌────────┐  ┌──────────┐  │
+│  │  Kraken  │  │ Qdrant │  │ SearXNG  │  │
+│  │  :3000   │  │ :6333  │  │  :8080   │  │
+│  └─────────┘  └────────┘  └──────────┘  │
+│       │                                    │
+│       └────── DeepSeek API (外部) ─────────│
+│                                          │
+│  ┌─────────┐  (--profile fallback)       │
+│  │ Ollama  │                             │
+│  │ :11434  │                             │
+│  └─────────┘                             │
+└──────────────────────────────────────────┘
+```
+
+### 常用运维命令
+
+```bash
+docker compose ps              # 查看服务状态
+docker compose logs -f kraken  # 实时日志
+docker compose restart kraken  # 重启主服务
+docker compose down            # 停止所有服务
+docker compose down -v         # 停止并删除数据卷（危险）
+```
+
 ## 环境变量
 
 | 变量 | 必填 | 默认值 | 说明 |
@@ -161,6 +233,12 @@ curl -X POST http://localhost:3000/knowledge/smart \
 ## 项目结构
 
 ```
+├── Dockerfile                      # 生产镜像构建
+├── docker-compose.yml              # 一键部署编排
+├── .env.example                    # 开发环境变量模板
+├── .env.production.example         # 生产环境变量模板
+├── searxng-settings.yml            # SearXNG 配置
+│
 src/
 ├── index.ts                        # 应用入口
 ├── api/
@@ -182,6 +260,7 @@ src/
 │   ├── crawler.ts                  # 网页爬取
 │   ├── processor.ts                # 文本切分
 │   ├── summarizer.ts               # LLM 摘要
+│   ├── behaviorChangeTest.ts       # 行为变化测试（质量门禁）
 │   └── qdrant.ts                   # 向量入库
 ├── services/                       # 外部服务封装
 │   ├── ollama.ts                   # Ollama (LLM 兜底 + Embedding)

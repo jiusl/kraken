@@ -1,0 +1,126 @@
+# ============================================
+# Kraken 生产部署 — Docker Compose
+# ============================================
+#
+# 启动所有服务:
+#   docker compose up -d
+#
+# 仅启动依赖服务 (Qdrant + SearXNG)，手动跑 Node:
+#   docker compose up -d qdrant searxng
+#
+# 查看日志:
+#   docker compose logs -f kraken
+#
+# 停止:
+#   docker compose down
+#
+# ============================================
+
+services:
+  # ===== 1. Kraken 主服务 =====
+  kraken:
+    build: .
+    container_name: kraken
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3000}:3000"
+    env_file:
+      - .env.production
+    depends_on:
+      qdrant:
+        condition: service_healthy
+      searxng:
+        condition: service_started
+    volumes:
+      # 日志持久化（对应 LOG_FILE_PATH=./data/logs/kraken.log）
+      - ./data/logs:/app/data/logs
+    networks:
+      - kraken-net
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+  # ===== 2. Qdrant 向量数据库 =====
+  qdrant:
+    image: qdrant/qdrant:v1.14.0
+    container_name: kraken-qdrant
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:6333:6333"   # REST API（仅本地）
+      - "127.0.0.1:6334:6334"   # gRPC（仅本地）
+    volumes:
+      - qdrant-data:/qdrant/storage
+    environment:
+      QDRANT__SERVICE__GRPC_PORT: 6334
+      QDRANT__LOG_LEVEL: INFO
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6333/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - kraken-net
+
+  # ===== 3. SearXNG 元搜索引擎 =====
+  searxng:
+    image: searxng/searxng:latest
+    container_name: kraken-searxng
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - ./searxng-settings.yml:/etc/searxng/settings.yml:ro
+      - searxng-data:/etc/searxng
+    environment:
+      SEARXNG_BASE_URL: http://localhost:8080/
+      SEARXNG_SECRET: "${SEARXNG_SECRET:-kraken-production-secret-change-me}"
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+    networks:
+      - kraken-net
+
+  # ===== 4. Ollama 本地 LLM (可选 — 仅兜底时启用) =====
+  # 启用: docker compose --profile fallback up -d ollama
+  ollama:
+    image: ollama/ollama:latest
+    container_name: kraken-ollama
+    restart: unless-stopped
+    profiles:
+      - fallback
+    ports:
+      - "127.0.0.1:11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    environment:
+      OLLAMA_KEEP_ALIVE: 24h
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    networks:
+      - kraken-net
+
+# ===== 存储卷 =====
+volumes:
+  qdrant-data:
+    name: kraken-qdrant-data
+  searxng-data:
+    name: kraken-searxng-data
+  ollama-data:
+    name: kraken-ollama-data
+
+# ===== 内部网络 =====
+networks:
+  kraken-net:
+    name: kraken-net
+    driver: bridge
