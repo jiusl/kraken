@@ -1,6 +1,6 @@
 # SearXNG configuration
 # 针对中国大陆服务器优化：优先使用国内可访问的搜索引擎
-use_default_settings: false
+use_default_settings: true
 
 search:
   safe_search: 0
@@ -10,54 +10,28 @@ search:
     - html
     - json
 
-# 只启用国内可直接访问的引擎
-# 注意：关闭 use_default_settings 后需显式列出所有引擎
+# 覆盖特定引擎设置（其余使用 SearXNG 内置默认）
 engines:
-  - name: bing
-    engine: bing
-    shortcut: bi
-    disabled: false
-  - name: duckduckgo
-    engine: duckduckgo
-    shortcut: ddg
-    disabled: false
-  - name: brave
-    engine: brave
-    shortcut: br
-    disabled: false
-  - name: qwant
-    engine: qwant
-    shortcut: qw
-    disabled: false
-  - name: mwmbl
-    engine: mwmbl
-    shortcut: mw
-    disabled: false
-  - name: startpage
-    engine: startpage
-    shortcut: sp
-    disabled: false
-
-  - name: bing images
-    engine: bing_images
-    shortcut: bii
-    disabled: true
-  - name: bing news
-    engine: bing_news
-    shortcut: bin
-    disabled: true
-  - name: bing videos
-    engine: bing_videos
-    shortcut: biv
-    disabled: true
-
+  # 禁用被墙 / 不可用的引擎
   - name: google
+    disabled: true
+  - name: google images
+    disabled: true
+  - name: google news
+    disabled: true
+  - name: google videos
     disabled: true
   - name: wikipedia
     disabled: true
   - name: yahoo
     disabled: true
   - name: yacy
+    disabled: true
+  - name: bing images
+    disabled: true
+  - name: bing news
+    disabled: true
+  - name: bing videos
     disabled: true
 
 outgoing:

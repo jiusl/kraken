@@ -240,7 +240,7 @@ curl http://localhost:8080/health
 > **提示**：如果 SearXNG 裸机安装遇到问题，可以仅用 Docker 跑 SearXNG，其他服务裸机运行 —
 > `docker run -d --name searxng -p 127.0.0.1:8080:8080 -v ./searxng-settings.yml:/etc/searxng/settings.yml:ro searxng/searxng`
 
-### 4. 安装 Ollama（可选，仅 LLM 兜底）
+### 4. 安装 Ollama
 
 ```bash
 curl -fsSL https://ollama.com/install.sh | sh
