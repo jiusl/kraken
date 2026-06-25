@@ -229,11 +229,29 @@ async function callLLM(
 ): Promise<Partial<AgentStateType>> {
   const { messages, iteration } = state;
 
-  logger.info({ iteration }, "Agent LLM 节点被调用");
+  logger.info({ iteration, msgCount: messages.length }, "Agent LLM 节点被调用");
 
   const llmWithTools = await llmWithToolsPromise;
   const response = await llmWithTools.invoke(messages);
   const aiMsg = response as AIMessage;
+
+  // 调试：记录 LLM 是否返回 tool_calls
+  if (aiMsg.tool_calls && aiMsg.tool_calls.length > 0) {
+    logger.info(
+      { toolCalls: aiMsg.tool_calls.map((tc) => tc.name), iteration },
+      "Agent LLM 请求调用工具",
+    );
+  } else {
+    logger.warn(
+      {
+        iteration,
+        contentPreview: typeof aiMsg.content === "string"
+          ? aiMsg.content.slice(0, 200)
+          : JSON.stringify(aiMsg.content).slice(0, 200),
+      },
+      "Agent LLM 未请求任何工具 — 将直接终止",
+    );
+  }
 
   return {
     messages: [aiMsg],
