@@ -68,7 +68,7 @@ export async function searchWeb(
         categories: "general",
         pageno: 1,
       },
-      timeout: 10_000,
+      timeout: 15_000,
     });
 
     const rawResults: SearchResult[] = (response.data.results ?? [])
