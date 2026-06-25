@@ -25,6 +25,7 @@
     "@langchain/qdrant": "^1.0.3",
     "@langgraph-js/crawler": "^2.0.0",
     "@qdrant/js-client-rest": "^1.18.0",
+    "puppeteer": "^24.0.0",
     "axios": "^1.18.1",
     "cheerio": "^1.2.0",
     "dotenv": "^17.4.2",

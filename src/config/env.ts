@@ -36,6 +36,11 @@ const envSchema = z.object({
   SEARXNG_URL: z.string().url().default("http://localhost:8080"),
   SEARXNG_ENABLED: z.coerce.boolean().default(true),
 
+  // 爬虫域名黑名单（逗号分隔，搜索结果中的这些域名会被自动过滤）
+  BLOCKED_DOMAINS: z
+    .string()
+    .default("wikipedia.org,zh.wikipedia.org,en.wikipedia.org,google.com,medium.com,twitter.com,x.com,reddit.com,youtube.com,facebook.com,instagram.com,quora.com,t.co,bbc.com,bbc.co.uk,nytimes.com,wsj.com,bloomberg.com,ft.com,economist.com"),
+
   // Agent 配置
   AGENT_MAX_ITERATIONS: z.coerce.number().int().positive().default(10),
   AGENT_TEMPERATURE: z.coerce.number().min(0).max(2).default(0.3),

@@ -1,30 +1,59 @@
 /**
  * tests/tools/crawler.test.ts
- * 爬虫工具函数的单元测试
+ * 爬虫工具函数的单元测试（Puppeteer 实现）
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-// Mock @langgraph-js/crawler
-vi.mock("@langgraph-js/crawler", () => ({
-  getHTMLContent: vi.fn(),
-  HTMLToMarkdown: vi.fn(),
+// Mock puppeteer
+const mockNewPage = vi.fn();
+const mockClose = vi.fn().mockResolvedValue(undefined);
+const mockBrowserClose = vi.fn();
+const mockLaunch = vi.fn();
+
+vi.mock("puppeteer", () => ({
+  default: {
+    launch: (...args: unknown[]) => {
+      mockLaunch(...args);
+      return Promise.resolve({
+        isConnected: () => true,
+        newPage: mockNewPage,
+        close: mockBrowserClose,
+      });
+    },
+  },
 }));
 
-import { getHTMLContent, HTMLToMarkdown } from "@langgraph-js/crawler";
-import { crawlWebsites } from "../../src/tools/crawler.js";
+import { crawlWebsites, crawlSinglePage } from "../../src/tools/crawler.js";
 
-describe("crawlWebsites", () => {
+function createMockPage(opts: {
+  title: string;
+  content: string;
+  gotoError?: string;
+}) {
+  return {
+    goto: vi.fn().mockImplementation(() => {
+      if (opts.gotoError) throw new Error(opts.gotoError);
+      return Promise.resolve();
+    }),
+    evaluate: vi.fn().mockResolvedValue({
+      title: opts.title,
+      content: opts.content,
+    }),
+    setUserAgent: vi.fn().mockResolvedValue(undefined),
+    close: mockClose,
+  };
+}
+
+describe("crawlWebsites (Puppeteer)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
   describe("成功爬取", () => {
     it("应返回爬取成功的页面内容", async () => {
-      const mockHtml = "<html><head><title>Test Page</title></head><body><p>Hello World</p></body></html>";
-      const mockMarkdown = "Hello World";
-
-      vi.mocked(getHTMLContent).mockResolvedValue(mockHtml);
-      vi.mocked(HTMLToMarkdown).mockReturnValue(mockMarkdown);
+      mockNewPage.mockResolvedValue(
+        createMockPage({ title: "Test Page", content: "Hello World" }),
+      );
 
       const result = await crawlWebsites(["https://example.com"]);
 
@@ -36,13 +65,13 @@ describe("crawlWebsites", () => {
       expect(result.pages[0].content).toBe("Hello World");
       expect(result.pages[0].error).toBeUndefined();
       expect(result.pages[0].crawledAt).toBeDefined();
+      expect(mockClose).toHaveBeenCalled();
     });
 
     it("应正确提取中文标题", async () => {
-      const mockHtml = "<html><head><title>中文测试页面</title></head><body><p>内容</p></body></html>";
-
-      vi.mocked(getHTMLContent).mockResolvedValue(mockHtml);
-      vi.mocked(HTMLToMarkdown).mockReturnValue("内容");
+      mockNewPage.mockResolvedValue(
+        createMockPage({ title: "中文测试页面", content: "内容" }),
+      );
 
       const result = await crawlWebsites(["https://example.com"]);
 
@@ -50,10 +79,9 @@ describe("crawlWebsites", () => {
     });
 
     it("应处理无标题的页面", async () => {
-      const mockHtml = "<html><body><p>No title</p></body></html>";
-
-      vi.mocked(getHTMLContent).mockResolvedValue(mockHtml);
-      vi.mocked(HTMLToMarkdown).mockReturnValue("No title");
+      mockNewPage.mockResolvedValue(
+        createMockPage({ title: "", content: "No title body" }),
+      );
 
       const result = await crawlWebsites(["https://example.com"]);
 
@@ -61,11 +89,10 @@ describe("crawlWebsites", () => {
     });
 
     it("批量爬取多个 URL", async () => {
-      vi.mocked(getHTMLContent)
-        .mockResolvedValueOnce("<html><title>A</title></html>")
-        .mockResolvedValueOnce("<html><title>B</title></html>")
-        .mockResolvedValueOnce("<html><title>C</title></html>");
-      vi.mocked(HTMLToMarkdown).mockReturnValue("content");
+      mockNewPage
+        .mockResolvedValueOnce(createMockPage({ title: "A", content: "a" }))
+        .mockResolvedValueOnce(createMockPage({ title: "B", content: "b" }))
+        .mockResolvedValueOnce(createMockPage({ title: "C", content: "c" }));
 
       const result = await crawlWebsites([
         "https://a.com",
@@ -77,11 +104,25 @@ describe("crawlWebsites", () => {
       expect(result.successCount).toBe(3);
       expect(result.failCount).toBe(0);
     });
+
+    it("应清理文本中的空白行", async () => {
+      mockNewPage.mockResolvedValue(
+        createMockPage({
+          title: "T",
+          content: "line1\n    \n\n\n\n\n  line2  \nline3",
+        }),
+      );
+
+      const result = await crawlWebsites(["https://example.com"]);
+      expect(result.pages[0].content).toBe("line1\nline2\nline3");
+    });
   });
 
   describe("爬取失败", () => {
     it("爬取失败时不应抛出异常，页面的 error 字段应有内容", async () => {
-      vi.mocked(getHTMLContent).mockRejectedValue(new Error("Network error"));
+      mockNewPage.mockResolvedValue(
+        createMockPage({ title: "", content: "", gotoError: "Network error" }),
+      );
 
       const result = await crawlWebsites(["https://broken.link"]);
 
@@ -94,11 +135,14 @@ describe("crawlWebsites", () => {
     });
 
     it("部分成功部分失败", async () => {
-      vi.mocked(getHTMLContent)
-        .mockResolvedValueOnce("<html><title>OK</title></html>")
-        .mockRejectedValueOnce(new Error("Timeout"))
-        .mockResolvedValueOnce("<html><title>Also OK</title></html>");
-      vi.mocked(HTMLToMarkdown).mockReturnValue("markdown");
+      mockNewPage
+        .mockResolvedValueOnce(createMockPage({ title: "OK", content: "ok" }))
+        .mockResolvedValueOnce(
+          createMockPage({ title: "", content: "", gotoError: "Timeout" }),
+        )
+        .mockResolvedValueOnce(
+          createMockPage({ title: "Also OK", content: "also ok" }),
+        );
 
       const result = await crawlWebsites([
         "https://ok.com",
@@ -121,22 +165,18 @@ describe("crawlWebsites", () => {
       expect(result.failCount).toBe(0);
     });
   });
+});
 
-  describe("非 Error 对象异常", () => {
-    it("应处理字符串类型的异常", async () => {
-      vi.mocked(getHTMLContent).mockRejectedValue("String error");
+describe("crawlSinglePage", () => {
+  it("应返回单个页面结果", async () => {
+    mockNewPage.mockResolvedValue(
+      createMockPage({ title: "Single", content: "page" }),
+    );
 
-      const result = await crawlWebsites(["https://example.com"]);
+    const result = await crawlSinglePage("https://example.com");
 
-      expect(result.pages[0].error).toBe("String error");
-    });
-
-    it("应处理 object 类型的异常", async () => {
-      vi.mocked(getHTMLContent).mockRejectedValue({ code: 500 });
-
-      const result = await crawlWebsites(["https://example.com"]);
-
-      expect(result.pages[0].error).toBe("[object Object]");
-    });
+    expect(result.url).toBe("https://example.com");
+    expect(result.title).toBe("Single");
   });
 });
+

@@ -1,5 +1,5 @@
 # SearXNG configuration
-# Minimal settings for local knowledge search
+# 针对中国大陆服务器优化：优先使用国内可访问的搜索引擎
 use_default_settings: true
 
 search:
@@ -9,6 +9,39 @@ search:
   formats:
     - html
     - json
+
+# 只启用国内可直接访问的引擎，避免返回大量被墙 URL
+engines:
+  # 保留：国内可直连的引擎
+  - name: bing
+    engine: bing
+    shortcut: bi
+  - name: duckduckgo
+    engine: duckduckgo
+    shortcut: ddg
+    disabled: false
+  - name: bing images
+    engine: bing_images
+    shortcut: bii
+    disabled: true
+  - name: bing news
+    engine: bing_news
+    shortcut: bin
+    disabled: true
+  - name: bing videos
+    engine: bing_videos
+    shortcut: biv
+    disabled: true
+
+  # 禁用：返回大量被墙结果的引擎
+  - name: google
+    disabled: true
+  - name: wikipedia
+    disabled: true
+  - name: yahoo
+    disabled: true
+  - name: yacy
+    disabled: true
 
 server:
   secret_key: "kraken-dev-searxng-secret-key-2024"

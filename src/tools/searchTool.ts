@@ -8,11 +8,42 @@ import { logger } from "./logger.js";
 import type { SearchResult } from "../types/index.js";
 
 /**
+ * 解析环境变量中的域名黑名单
+ */
+function parseBlockedDomains(): Set<string> {
+  const raw = config.BLOCKED_DOMAINS || "";
+  return new Set(
+    raw
+      .split(",")
+      .map((d) => d.trim().toLowerCase())
+      .filter(Boolean),
+  );
+}
+
+/**
+ * 判断 URL 是否在黑名单域名下
+ */
+function isBlocked(url: string, blocked: Set<string>): boolean {
+  try {
+    const hostname = new URL(url).hostname.toLowerCase();
+    // 精确匹配 & 子域名匹配
+    for (const domain of blocked) {
+      if (hostname === domain || hostname.endsWith("." + domain)) {
+        return true;
+      }
+    }
+  } catch {
+    // URL 解析失败，保守起见不过滤
+  }
+  return false;
+}
+
+/**
  * 通过 SearXNG 搜索网页
  *
  * @param query - 搜索关键词
  * @param maxResults - 最大结果数
- * @returns 搜索结果列表
+ * @returns 搜索结果列表（已过滤黑名单域名）
  */
 export async function searchWeb(
   query: string,
@@ -24,6 +55,7 @@ export async function searchWeb(
   }
 
   const url = `${config.SEARXNG_URL}/search`;
+  const blocked = parseBlockedDomains();
 
   logger.info({ query, maxResults }, "开始 SearXNG 搜索");
 
@@ -39,8 +71,7 @@ export async function searchWeb(
       timeout: 10_000,
     });
 
-    const results: SearchResult[] = (response.data.results ?? [])
-      .slice(0, maxResults)
+    const rawResults: SearchResult[] = (response.data.results ?? [])
       .map((r: Record<string, unknown>) => ({
         title: String(r.title ?? ""),
         url: String(r.url ?? ""),
@@ -48,8 +79,30 @@ export async function searchWeb(
         engine: String(r.engine ?? ""),
       }));
 
+    // 过滤掉黑名单域名
+    const filtered: SearchResult[] = [];
+    const skipped: string[] = [];
+    for (const r of rawResults) {
+      if (isBlocked(r.url, blocked)) {
+        skipped.push(r.url);
+      } else {
+        filtered.push(r);
+      }
+    }
+
+    const results = filtered.slice(0, maxResults);
+
+    if (skipped.length > 0) {
+      logger.info(
+        { skippedCount: skipped.length, skippedDomains: skipped.map((u) => {
+          try { return new URL(u).hostname; } catch { return u; }
+        }) },
+        "已过滤无法访问的网址",
+      );
+    }
+
     logger.info(
-      { query, totalHits: response.data.results?.length, returned: results.length },
+      { query, totalHits: rawResults.length, afterFilter: filtered.length, returned: results.length },
       "SearXNG 搜索完成",
     );
 

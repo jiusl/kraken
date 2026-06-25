@@ -21,6 +21,7 @@ services:
   kraken:
     build: .
     container_name: kraken
+    user: root
     restart: unless-stopped
     ports:
       - "${PORT:-3000}:3000"

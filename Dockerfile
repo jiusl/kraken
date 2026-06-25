@@ -20,6 +20,22 @@ RUN npm ci --production=true && npm cache clean --force
 # ===== 运行镜像 =====
 FROM node:22-alpine AS runner
 
+# Chromium 依赖 (Puppeteer 无头浏览器)
+# musl-locales 提供完整的 C.UTF-8 locale 支持
+RUN apk add --no-cache \
+    chromium \
+    nss \
+    freetype \
+    harfbuzz \
+    ca-certificates \
+    ttf-freefont \
+    musl-locales
+
+# 设置 Chromium 路径 + UTF-8 编码
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
+
 # 安全：非 root 用户运行
 RUN addgroup -S kraken && adduser -S kraken -G kraken
 USER kraken
