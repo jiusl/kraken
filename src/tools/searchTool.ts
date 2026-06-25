@@ -64,7 +64,6 @@ export async function searchWeb(
       params: {
         q: query,
         format: "json",
-        language: "zh-CN",
         categories: "general",
         pageno: 1,
       },
