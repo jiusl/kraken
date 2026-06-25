@@ -405,7 +405,7 @@ const AGENT_SYSTEM_PROMPT = `你是一个专业的知识管理助手 Agent。你
 - **必须**在第一步调用 search_web，不允许跳过
 - 爬取成功后**必须立即** summarize → save，不得再回去搜索
 - 不要爬取同一个 URL 两次
-- 搜索间隔建议用简明的中文关键词
+- 搜索关键词**必须使用英文**（Bing 引擎对英文搜索返回的中文内容质量远高于中文搜索）
 - 如果搜索结果为空，更换搜索词再试一次（最多 3 次）
 - 如果连续搜索 3 次均无结果，直接告知用户搜索服务不可用并结束
 - 搜索服务不可用时告知用户`;
@@ -426,7 +426,7 @@ export async function runKnowledgeAgent(
   const initialState: Partial<AgentStateType> = {
     messages: [
       new SystemMessage({ content: AGENT_SYSTEM_PROMPT }),
-      new HumanMessage({ content: `用户意图：${intent}\n\n请立即开始执行知识收集任务。第一步必须调用 search_web。` }),
+      new HumanMessage({ content: `用户意图：${intent}\n\n请立即开始执行知识收集任务。第一步必须调用 search_web。注意：搜索时必须使用英文关键词。` }),
     ],
     intent,
     taskId,
