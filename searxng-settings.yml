@@ -1,5 +1,5 @@
-# SearXNG configuration
-# 针对中国大陆服务器优化：优先使用国内可访问的搜索引擎
+# SearXNG 配置 — 中国大陆优化版
+# 使用默认设置保底，引擎选择由搜索请求参数控制
 use_default_settings: true
 
 search:
@@ -10,36 +10,12 @@ search:
     - html
     - json
 
-# 覆盖特定引擎设置（其余使用 SearXNG 内置默认）
-engines:
-  # 禁用被墙 / 不可用的引擎
-  - name: google
-    disabled: true
-  - name: google images
-    disabled: true
-  - name: google news
-    disabled: true
-  - name: google videos
-    disabled: true
-  - name: wikipedia
-    disabled: true
-  - name: yahoo
-    disabled: true
-  - name: yacy
-    disabled: true
-  - name: bing images
-    disabled: true
-  - name: bing news
-    disabled: true
-  - name: bing videos
-    disabled: true
-
 outgoing:
-  request_timeout: 15.0
-  max_request_timeout: 20.0
+  request_timeout: 5.0
+  max_request_timeout: 8.0
 
 server:
-  secret_key: "kraken-dev-searxng-secret-key-2024"
+  secret_key: "kraken-searxng-secret-key-change-me"
   bind_address: "0.0.0.0"
   port: 8080
   limiter: false

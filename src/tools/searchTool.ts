@@ -66,6 +66,7 @@ export async function searchWeb(
         format: "json",
         language: "zh-CN",
         categories: "general",
+        engines: "bing",
         pageno: 1,
       },
       timeout: 15_000,
