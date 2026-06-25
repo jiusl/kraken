@@ -42,7 +42,7 @@ const envSchema = z.object({
     .default("wikipedia.org,zh.wikipedia.org,en.wikipedia.org,google.com,medium.com,twitter.com,x.com,reddit.com,youtube.com,facebook.com,instagram.com,quora.com,t.co,bbc.com,bbc.co.uk,nytimes.com,wsj.com,bloomberg.com,ft.com,economist.com"),
 
   // Agent 配置
-  AGENT_MAX_ITERATIONS: z.coerce.number().int().positive().default(10),
+  AGENT_MAX_ITERATIONS: z.coerce.number().int().positive().default(6),
   AGENT_TEMPERATURE: z.coerce.number().min(0).max(2).default(0.3),
 
   // 降级策略

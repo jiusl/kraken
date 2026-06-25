@@ -15,6 +15,8 @@ const BROWSER_ARGS = [
   "--disable-dev-shm-usage",
   "--disable-gpu",
   "--single-process",
+  "--ignore-certificate-errors",
+  "--ignore-certificate-errors-spki-list",
 ];
 
 /** 浏览器单例（延迟初始化） */

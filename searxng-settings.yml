@@ -1,6 +1,6 @@
 # SearXNG configuration
 # 针对中国大陆服务器优化：优先使用国内可访问的搜索引擎
-use_default_settings: true
+use_default_settings: false
 
 search:
   safe_search: 0
@@ -10,25 +10,20 @@ search:
     - html
     - json
 
-# 只启用国内可直接访问的引擎，避免返回大量被墙 URL
-# 中文搜索优化：Brave / Startpage / Qwant 对中文支持较好
+# 只启用国内可直接访问的引擎
+# 注意：关闭 use_default_settings 后需显式列出所有引擎
 engines:
-  # ---- 中文搜索引擎 ----
   - name: bing
     engine: bing
     shortcut: bi
-    disabled: false
-  - name: brave
-    engine: brave
-    shortcut: br
     disabled: false
   - name: duckduckgo
     engine: duckduckgo
     shortcut: ddg
     disabled: false
-  - name: startpage
-    engine: startpage
-    shortcut: sp
+  - name: brave
+    engine: brave
+    shortcut: br
     disabled: false
   - name: qwant
     engine: qwant
@@ -38,8 +33,11 @@ engines:
     engine: mwmbl
     shortcut: mw
     disabled: false
+  - name: startpage
+    engine: startpage
+    shortcut: sp
+    disabled: false
 
-  # ---- 图片/新闻等默认关闭 ----
   - name: bing images
     engine: bing_images
     shortcut: bii
@@ -53,7 +51,6 @@ engines:
     shortcut: biv
     disabled: true
 
-  # ---- 禁用：返回大量被墙结果的引擎 ----
   - name: google
     disabled: true
   - name: wikipedia
@@ -62,6 +59,10 @@ engines:
     disabled: true
   - name: yacy
     disabled: true
+
+outgoing:
+  request_timeout: 15.0
+  max_request_timeout: 20.0
 
 server:
   secret_key: "kraken-dev-searxng-secret-key-2024"
