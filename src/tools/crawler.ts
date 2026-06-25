@@ -45,7 +45,7 @@ async function getBrowser(): Promise<Browser> {
  * 用已打开的 Page 爬取单个 URL，返回纯文本内容
  */
 async function fetchPageContent(page: Page, url: string): Promise<CrawledPage> {
-  await page.goto(url, { waitUntil: "networkidle2", timeout: 30000 });
+  await page.goto(url, { waitUntil: "networkidle2", timeout: 45_000 });
 
   // evaluate 回调在浏览器上下文执行
   const result = await page.evaluate(() => {

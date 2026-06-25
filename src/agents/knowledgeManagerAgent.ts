@@ -255,7 +255,6 @@ async function callLLM(
 
   return {
     messages: [aiMsg],
-    iteration: iteration + 1,
   };
 }
 
@@ -266,7 +265,7 @@ async function callTools(
   state: AgentStateType,
   _config?: RunnableConfig,
 ): Promise<Partial<AgentStateType>> {
-  const { messages } = state;
+  const { messages, iteration } = state;
   const lastMsg = messages[messages.length - 1] as AIMessage;
 
   if (!lastMsg.tool_calls || lastMsg.tool_calls.length === 0) {
@@ -334,6 +333,7 @@ async function callTools(
     searchedUrls,
     crawledUrls,
     savedCount,
+    iteration: iteration + 1,
   };
 }
 
@@ -344,8 +344,8 @@ function shouldContinue(state: AgentStateType): "callTools" | typeof END {
   const { messages, iteration } = state;
   const lastMsg = messages[messages.length - 1] as AIMessage;
 
-  // 超过最大迭代次数
-  if (iteration >= config.AGENT_MAX_ITERATIONS) {
+  // 超过最大迭代次数（在工具执行前检查，确保最后一轮工具能被执行）
+  if (iteration > config.AGENT_MAX_ITERATIONS) {
     logger.warn({ iteration }, "Agent 达到最大迭代次数，强制终止");
     return END;
   }
@@ -365,7 +365,7 @@ function shouldContinue(state: AgentStateType): "callTools" | typeof END {
 function shouldLoop(state: AgentStateType): "callLLM" | typeof END {
   const { iteration } = state;
 
-  if (iteration >= config.AGENT_MAX_ITERATIONS) {
+  if (iteration > config.AGENT_MAX_ITERATIONS) {
     logger.warn({ iteration }, "Agent 达到最大迭代次数，强制终止");
     return END;
   }
@@ -406,9 +406,10 @@ const AGENT_SYSTEM_PROMPT = `你是一个专业的知识管理助手 Agent。你
 - 爬取成功后**必须立即** summarize → save，不得再回去搜索
 - 不要爬取同一个 URL 两次
 - 搜索关键词**必须使用英文**（Bing 引擎对英文搜索返回的中文内容质量远高于中文搜索）
+- 如果爬取失败（超时/反爬），从当前搜索结果中换一个 URL 重试，**不要重新搜索**
+- 如果已有成功爬取的内容，**先 summarize → save 再考虑继续**
 - 如果搜索结果为空，更换搜索词再试一次（最多 3 次）
-- 如果连续搜索 3 次均无结果，直接告知用户搜索服务不可用并结束
-- 搜索服务不可用时告知用户`;
+- 如果连续搜索 3 次均无结果，直接告知用户搜索服务不可用并结束`;
 
 /**
  * 运行知识管理 Agent
