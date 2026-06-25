@@ -1,6 +1,7 @@
 import { config } from "../config/index.js";
 import { createLLM } from "../services/deepseek.js";
 import { logger } from "./logger.js";
+import { sanitizeUnicode } from "./text.js";
 
 /**
  * LLM 推理客户端（自动选择 DeepSeek / Ollama 兜底）
@@ -25,7 +26,7 @@ export async function callLocalLLM(
 3. 保留关键事实、数据和观点
 4. 使用中文回答`;
 
-  const userMessage = `${prompt}\n\n待处理文本：\n${context.slice(0, 4000)}`;
+  const userMessage = `${prompt}\n\n待处理文本：\n${sanitizeUnicode(context.slice(0, 4000))}`;
 
   try {
     logger.info(

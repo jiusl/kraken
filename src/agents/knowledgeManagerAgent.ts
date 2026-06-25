@@ -21,6 +21,7 @@ import { searchWeb } from "../tools/searchTool.js";
 import { crawlSinglePage } from "../tools/crawler.js";
 import { callLocalLLM } from "../tools/llm.js";
 import { upsertKnowledge, searchKnowledge } from "../tools/qdrant.js";
+import { sanitizeUnicode } from "../tools/text.js";
 import type { KnowledgeDocument, SearchResult } from "../types/index.js";
 
 // ============================================
@@ -230,6 +231,30 @@ async function callLLM(
   const { messages, iteration } = state;
 
   logger.info({ iteration, msgCount: messages.length }, "Agent LLM 节点被调用");
+
+  // 清洗消息中所有字符串的孤立代理对，防止 JSON 序列化报错
+  for (const msg of messages) {
+    if (typeof msg.content === "string") {
+      msg.content = sanitizeUnicode(msg.content);
+    } else if (Array.isArray(msg.content)) {
+      msg.content = msg.content.map((part: any) => {
+        if (typeof part === "string") return sanitizeUnicode(part);
+        if (part?.text) return { ...part, text: sanitizeUnicode(part.text) };
+        return part;
+      });
+    }
+    // 清洗 tool_calls 中的 args
+    const tc = (msg as any).tool_calls;
+    if (tc) {
+      for (const t of tc) {
+        if (t.args) {
+          for (const k of Object.keys(t.args)) {
+            if (typeof t.args[k] === "string") t.args[k] = sanitizeUnicode(t.args[k]);
+          }
+        }
+      }
+    }
+  }
 
   const llmWithTools = await llmWithToolsPromise;
   const response = await llmWithTools.invoke(messages);

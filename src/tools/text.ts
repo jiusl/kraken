@@ -3,6 +3,18 @@ import { config } from "../config/index.js";
 import { logger } from "./logger.js";
 
 /**
+ * 清洗字符串中的孤立代理对（lone surrogates），防止 JSON.stringify 产生无效 UTF-16。
+ * 网页爬取内容常含有 emoji / 特殊 Unicode 字符，如 →、❤️、⭐ 等，
+ * 被截断后会产生孤立代理对，导致 DeepSeek API 返回 400。
+ */
+export function sanitizeUnicode(str: string): string {
+  return str.replace(
+    /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g,
+    "\uFFFD",
+  );
+}
+
+/**
  * 生成唯一 ID（简易实现）
  */
 function generateId(): string {
