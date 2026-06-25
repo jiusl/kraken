@@ -1,5 +1,5 @@
 # SearXNG 配置 — 中国大陆优化版
-# 使用默认设置保底，引擎选择由搜索请求参数控制
+# use_default_settings: true 加载内置默认，下面只覆盖需要的引擎
 use_default_settings: true
 
 search:
@@ -10,9 +10,49 @@ search:
     - html
     - json
 
+# 只启用 Bing（走 cn.bing.com），其余引擎全部禁用
+engines:
+  - name: bing
+    engine: bing
+    base_url: "https://cn.bing.com/"
+    shortcut: bi
+    disabled: false
+  - name: bing images
+    disabled: true
+  - name: bing news
+    disabled: true
+  - name: bing videos
+    disabled: true
+  - name: duckduckgo
+    disabled: true
+  - name: brave
+    disabled: true
+  - name: startpage
+    disabled: true
+  - name: qwant
+    disabled: true
+  - name: mwmbl
+    disabled: true
+  - name: google
+    disabled: true
+  - name: google images
+    disabled: true
+  - name: google news
+    disabled: true
+  - name: google videos
+    disabled: true
+  - name: wikipedia
+    disabled: true
+  - name: wikidata
+    disabled: true
+  - name: yahoo
+    disabled: true
+  - name: yacy
+    disabled: true
+
 outgoing:
-  request_timeout: 5.0
-  max_request_timeout: 8.0
+  request_timeout: 10.0
+  max_request_timeout: 15.0
 
 server:
   secret_key: "kraken-searxng-secret-key-change-me"
