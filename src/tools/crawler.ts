@@ -45,14 +45,15 @@ async function getBrowser(): Promise<Browser> {
 async function fetchPageContent(page: Page, url: string): Promise<CrawledPage> {
   await page.goto(url, { waitUntil: "networkidle2", timeout: 30000 });
 
+  // evaluate 回调在浏览器上下文执行
   const result = await page.evaluate(() => {
-    // 移除干扰元素
     document
       .querySelectorAll("script, style, nav, footer, header, iframe, noscript")
       .forEach((el) => el.remove());
-    const title = document.title || "";
-    const content = document.body?.innerText || "";
-    return { title, content };
+    return {
+      title: document.title || "",
+      content: document.body?.innerText || "",
+    };
   });
 
   // 清理文本：移除空行、压缩空白

@@ -9,6 +9,7 @@ import {
   HumanMessage,
   AIMessage,
   ToolMessage,
+  SystemMessage,
   type BaseMessage,
 } from "@langchain/core/messages";
 import { RunnableConfig } from "@langchain/core/runnables";
@@ -372,24 +373,23 @@ export const knowledgeManagerAgent = agentWorkflow.compile();
 // Agent 执行入口
 // ============================================
 
-const AGENT_SYSTEM_PROMPT = `你是一个专业的知识管理助手 Agent。你的任务是帮助用户收集、整理和保存知识。
+const AGENT_SYSTEM_PROMPT = `你是一个专业的知识管理助手 Agent。你的核心任务是**实际调用工具**来收集、整理和保存知识。你绝不能凭空回答或依赖自己的训练数据，必须通过工具获取真实信息。
 
-## 工作流程
-1. 先调用 query_existing 检查知识库中是否已有相关内容
-2. 如果已有足够知识，直接总结返回；否则继续
-3. 调用 search_web 搜索相关网页
-4. 筛选 1-3 个最优质的搜索结果
-5. 对每个选中的网页调用 crawl_webpage 获取完整内容
-6. 调用 summarize_content 生成摘要和关键词
-7. 调用 save_knowledge 将知识存入 Qdrant
+## 工作流程（每一步都必须调用工具）
+1. 首先调用 search_web 搜索相关网页（至少搜索一次）
+2. 筛选 1-3 个最优质的搜索结果
+3. 对每个选中的网页调用 crawl_webpage 获取完整内容
+4. 调用 summarize_content 生成摘要和关键词
+5. 调用 save_knowledge 将知识存入 Qdrant
 
-## 重要规则
-- 每次搜索尽量变换关键词以获取不同结果
+## 强制规则
+- **必须**在第一步调用 search_web，不允许跳过
+- 每次搜索使用不同的关键词以获取更全面的结果
 - 不要爬取同一个 URL 两次
-- 每个网页处理完后立刻保存，不要等到最后
-- 处理完 1-3 个网页后用中文告知用户已完成的工作
-- 如果搜索结果为空，尝试更换搜索词重试一次
-- 搜索服务不可用时明确告知用户`;
+- 每个网页处理完后立刻保存
+- 搜索间隔建议用简明的中文关键词（不要用完整的英文句子）
+- 如果搜索结果为空，更换搜索词再试一次
+- 搜索服务不可用时告知用户`;
 
 /**
  * 运行知识管理 Agent
@@ -406,9 +406,8 @@ export async function runKnowledgeAgent(
 
   const initialState: Partial<AgentStateType> = {
     messages: [
-      new HumanMessage({
-        content: `${AGENT_SYSTEM_PROMPT}\n\n用户意图：${intent}\n\n请开始执行知识收集任务。`,
-      }),
+      new SystemMessage({ content: AGENT_SYSTEM_PROMPT }),
+      new HumanMessage({ content: `用户意图：${intent}\n\n请立即开始执行知识收集任务。第一步必须调用 search_web。` }),
     ],
     intent,
     taskId,
