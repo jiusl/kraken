@@ -63,10 +63,17 @@ npm run dev
 ### 前置要求
 
 - **Docker** ≥ 24 + **Docker Compose** ≥ v2
+- **Git** — 需要克隆仓库（镜像采用本地 `build: .` 方式构建）
 - **DeepSeek API Key**（[获取](https://platform.deepseek.com/api_keys)）— 主推理引擎
-- Ollama 可选（仅 LLM 兜底时启用）
 
-### 1. 准备配置
+### 1. 克隆项目
+
+```bash
+git clone https://github.com/jiusl/kraken.git
+cd kraken
+```
+
+### 2. 准备配置
 
 ```bash
 # 复制生产环境变量模板
@@ -76,19 +83,18 @@ cp .env.production.example .env.production
 # DEEPSEEK_API_KEY=sk-your-real-key
 ```
 
-### 2. 启动所有服务
+### 3. 启动所有服务
 
 ```bash
-# 构建并后台启动 (Kraken + Qdrant + SearXNG)
+# 构建并后台启动 (Kraken + Qdrant + SearXNG + Ollama)
 docker compose up -d
 
-# 如需 Ollama 本地兜底（需 NVIDIA GPU）：
-# docker compose --profile fallback up -d ollama
-# docker compose exec ollama ollama pull embeddinggemma
-# docker compose exec ollama ollama pull qwen2.5:1.5b-instruct-q4_K_M
+# 拉取 Ollama 模型（首次启动后执行，耗时较长）
+docker compose exec ollama ollama pull embeddinggemma
+docker compose exec ollama ollama pull qwen2.5:1.5b-instruct-q4_K_M
 ```
 
-### 3. 验证
+### 4. 验证
 
 ```bash
 # 健康检查
@@ -109,12 +115,12 @@ docker compose logs -f kraken
 │  │  :3000   │  │ :6333  │  │  :8080   │  │
 │  └─────────┘  └────────┘  └──────────┘  │
 │       │                                    │
-│       └────── DeepSeek API (外部) ─────────│
-│                                          │
-│  ┌─────────┐  (--profile fallback)       │
-│  │ Ollama  │                             │
-│  │ :11434  │                             │
-│  └─────────┘                             │
+│       ├────── DeepSeek API (外部) ─────────│
+│       │                                    │
+│  ┌─────────┐                              │
+│  │ Ollama  │                              │
+│  │ :11434  │                              │
+│  └─────────┘                              │
 └──────────────────────────────────────────┘
 ```
 
@@ -126,6 +132,220 @@ docker compose logs -f kraken  # 实时日志
 docker compose restart kraken  # 重启主服务
 docker compose down            # 停止所有服务
 docker compose down -v         # 停止并删除数据卷（危险）
+```
+
+## 裸机部署 (Linux, 不用 Docker)
+
+适用场景：直接部署在 VPS / 物理服务器上，不依赖 Docker。
+
+### 前置要求
+
+- **Node.js** ≥ 22
+- **DeepSeek API Key**（[获取](https://platform.deepseek.com/api_keys)）— 主推理引擎
+- **系统依赖**：`build-essential`、`python3`、`python3-venv`、`curl`、`git`
+
+### 1. 安装 Node.js 22
+
+```bash
+# Ubuntu / Debian
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+sudo apt install -y nodejs
+
+# 验证
+node -v   # ≥ 22.0
+npm -v
+```
+
+### 2. 安装 Qdrant
+
+```bash
+# 下载预编译二进制（Linux x86_64）
+wget https://github.com/qdrant/qdrant/releases/download/v1.14.0/qdrant-x86_64-unknown-linux-gnu.tar.gz
+tar xzf qdrant-x86_64-unknown-linux-gnu.tar.gz
+sudo mv qdrant /usr/local/bin/
+
+# 以 systemd 服务运行
+sudo tee /etc/systemd/system/qdrant.service << 'EOF'
+[Unit]
+Description=Qdrant Vector Database
+After=network.target
+
+[Service]
+Type=simple
+User=qdrant
+ExecStart=/usr/local/bin/qdrant
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo useradd -r -s /bin/false qdrant
+sudo mkdir -p /var/lib/qdrant/storage /var/lib/qdrant/snapshots
+sudo chown -R qdrant:qdrant /var/lib/qdrant
+sudo systemctl daemon-reload
+sudo systemctl enable --now qdrant
+
+# 验证
+curl http://localhost:6333/health
+```
+
+### 3. 安装 SearXNG
+
+SearXNG 官方推荐 Docker，但也可以用 Python 虚拟环境运行：
+
+```bash
+# 创建运行用户
+sudo useradd -r -s /bin/bash searxng
+sudo mkdir -p /usr/local/searxng /etc/searxng
+sudo chown searxng:searxng /usr/local/searxng /etc/searxng
+
+# 安装
+sudo -u searxng -i
+python3 -m venv /usr/local/searxng/searx-pyenv
+source /usr/local/searxng/searxng-pyenv/bin/activate
+pip install -U pip wheel searxng
+
+# 复制项目自带的配置文件
+# 退出 searxng 用户后执行：
+sudo cp searxng-settings.yml /etc/searxng/settings.yml
+sudo chown searxng:searxng /etc/searxng/settings.yml
+
+# systemd 服务
+sudo tee /etc/systemd/system/searxng.service << 'EOF'
+[Unit]
+Description=SearXNG
+After=network.target
+
+[Service]
+Type=simple
+User=searxng
+ExecStart=/usr/local/searxng/searxng-pyenv/bin/python -m searxng
+Environment=SEARXNG_SETTINGS_PATH=/etc/searxng/settings.yml
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now searxng
+
+# 验证
+curl http://localhost:8080/health
+```
+
+> **提示**：如果 SearXNG 裸机安装遇到问题，可以仅用 Docker 跑 SearXNG，其他服务裸机运行 —
+> `docker run -d --name searxng -p 127.0.0.1:8080:8080 -v ./searxng-settings.yml:/etc/searxng/settings.yml:ro searxng/searxng`
+
+### 4. 安装 Ollama（可选，仅 LLM 兜底）
+
+```bash
+curl -fsSL https://ollama.com/install.sh | sh
+
+# 拉取模型（耗时较长）
+ollama pull embeddinggemma
+ollama pull qwen2.5:1.5b-instruct-q4_K_M
+
+# 验证
+ollama list
+curl http://localhost:11434/api/tags
+```
+
+### 5. 部署 Kraken 服务
+
+```bash
+# 克隆并构建
+git clone https://github.com/jiusl/kraken.git /opt/kraken
+cd /opt/kraken
+npm ci --production=false
+npm run build
+npm ci --production=true   # 剪枝到仅生产依赖
+
+# 配置环境变量
+cp .env.production.example .env
+# 编辑 .env，确保各服务 URL 正确（localhost 即可）：
+#   DEEPSEEK_API_KEY=sk-xxx
+#   OLLAMA_BASE_URL=http://localhost:11434
+#   QDRANT_URL=http://localhost:6333
+#   SEARXNG_URL=http://localhost:8080
+
+# 创建日志目录
+mkdir -p data/logs
+```
+
+### 6. 用 PM2 守护进程
+
+```bash
+npm install -g pm2
+
+pm2 start dist/index.js \
+  --name kraken \
+  --cwd /opt/kraken \
+  --log /opt/kraken/data/logs/pm2.log
+
+pm2 save
+pm2 startup systemd   # 开机自启
+
+# 常用命令
+pm2 status           # 查看状态
+pm2 logs kraken      # 实时日志
+pm2 restart kraken   # 重启
+```
+
+### 7. （推荐）Nginx 反向代理 + HTTPS
+
+```nginx
+server {
+    listen 80;
+    server_name kraken.example.com;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    server_name kraken.example.com;
+
+    ssl_certificate     /etc/ssl/kraken.crt;
+    ssl_certificate_key /etc/ssl/kraken.key;
+
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Request-Id $request_id;
+    }
+}
+```
+
+```bash
+# 安装 certbot 获取免费证书
+sudo apt install certbot python3-certbot-nginx
+sudo certbot --nginx -d kraken.example.com
+```
+
+### 裸机架构一览
+
+```
+浏览器 / 客户端
+    │
+    ├── :443 ──→ Nginx ──→ Kraken (:3000) ──→ DeepSeek API (外网)
+    │                         │
+    │                         ├──→ Qdrant (:6333)
+    │                         ├──→ SearXNG (:8080)
+    │                         └──→ Ollama (:11434, 可选)
+    │
+    └── 所有服务通过 localhost 通信，不暴露到公网
+```
+
+### 验证部署
+
+```bash
+curl http://localhost:3000/health
+# {"status":"ok","services":{"ollama":"connected","deepseek":"connected","qdrant":"connected","searxng":"connected"}, ...}
 ```
 
 ## 环境变量

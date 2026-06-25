@@ -5,8 +5,8 @@
 # 启动所有服务:
 #   docker compose up -d
 #
-# 仅启动依赖服务 (Qdrant + SearXNG)，手动跑 Node:
-#   docker compose up -d qdrant searxng
+# 仅启动依赖服务，手动跑 Node:
+#   docker compose up -d qdrant searxng ollama
 #
 # 查看日志:
 #   docker compose logs -f kraken
@@ -28,8 +28,10 @@ services:
       - .env.production
     depends_on:
       qdrant:
-        condition: service_healthy
+        condition: service_started
       searxng:
+        condition: service_started
+      ollama:
         condition: service_started
     volumes:
       # 日志持久化（对应 LOG_FILE_PATH=./data/logs/kraken.log）
@@ -55,12 +57,6 @@ services:
     environment:
       QDRANT__SERVICE__GRPC_PORT: 6334
       QDRANT__LOG_LEVEL: INFO
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:6333/health"]
-      interval: 15s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
     networks:
       - kraken-net
 
@@ -86,27 +82,17 @@ services:
     networks:
       - kraken-net
 
-  # ===== 4. Ollama 本地 LLM (可选 — 仅兜底时启用) =====
-  # 启用: docker compose --profile fallback up -d ollama
+  # ===== 4. Ollama 本地 LLM =====
   ollama:
     image: ollama/ollama:latest
     container_name: kraken-ollama
     restart: unless-stopped
-    profiles:
-      - fallback
     ports:
       - "127.0.0.1:11434:11434"
     volumes:
       - ollama-data:/root/.ollama
     environment:
       OLLAMA_KEEP_ALIVE: 24h
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
     networks:
       - kraken-net
 
